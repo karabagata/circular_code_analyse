@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <title>Circular Codes — Web Checker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Favicon from local file -->
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='logo.jpg') }}?v=2">
   <!-- ============ Modern Minimal Styles ============ -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
@@ -15,7 +17,7 @@
     <!-- Header -->
     <div class="topbar">
       <div class="brand">
-        <div class="brand-logo">C</div>
+        <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="brand-logo-img">
         <div>Circular Codes — Web Checker</div>
       </div>
       <label class="theme-toggle" title="Toggle dark / light">
@@ -43,7 +45,7 @@
         </div>
         <div style="margin-top:14px; padding:12px; border:1px dashed var(--border); border-radius:12px;">
           <label for="codeFile" style="display:block; font-size:13px; color:var(--muted); margin-bottom:6px;">
-            Upload a text file (one code per file):
+            Upload a text file (empty lines separate codes):
           </label>
           <input id="codeFile" type="file" accept=".txt,.csv,.dat,.code" style="margin-bottom:8px; width:100%;" />
           <button id="analyzeFileBtn" class="btn btn-secondary" style="width:100%;">Analyze file</button>
@@ -52,7 +54,10 @@
 
       <!-- Right: Summary -->
       <div class="card" style="display: flex; flex-direction: column;">
-        <h3>Summary</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="margin:0;">Summary</h3>
+          <button id="downloadReportBtn" class="btn btn-secondary" style="font-size:12px; padding:4px 10px; display:none;">Download Report</button>
+        </div>
         <pre id="summary" style="flex-grow: 1; overflow-y: auto; min-height: 200px; max-height: 400px;">—</pre>
         <div id="navigation" style="display:none; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); min-height: 40px;">
           <button id="prevBtn" class="btn btn-secondary" style="font-size:12px; padding:6px 12px;">&larr; Previous</button>
@@ -108,10 +113,12 @@
     const nextBtn = document.getElementById('nextBtn');
     const navDiv = document.getElementById('navigation');
     const posLabel = document.getElementById('posLabel');
+    const downloadReportBtn = document.getElementById('downloadReportBtn');
     
     let cy = null;
     let currentResults = [];
     let currentIndex = 0;
+    let currentSource = "";
 
     function stylesheet() {
       return [
@@ -233,10 +240,13 @@
         // Normal analyze returns a single object
         currentResults = [data];
         currentIndex = 0;
+        currentSource = "Manual Input";
         showResult(0);
+        downloadReportBtn.style.display = 'block';
         
       } catch (err) {
         summary.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
+        downloadReportBtn.style.display = 'none';
       } finally {
         btn.disabled = false;
       }
@@ -264,14 +274,18 @@
         }
         
         currentIndex = 0;
+        currentSource = file.name;
         if (currentResults.length === 0) {
            summary.textContent = 'No valid codes found.';
+           downloadReportBtn.style.display = 'none';
         } else {
            showResult(0);
+           downloadReportBtn.style.display = 'block';
         }
         
       } catch (err) {
         summary.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
+        downloadReportBtn.style.display = 'none';
       } finally {
         analyzeFileBtn.disabled = false;
       }
@@ -293,11 +307,48 @@
       }
       analyzeFileUpload(file);
     });
+
     document.getElementById('fitBtn').addEventListener('click', () => {
       if (cy) cy.fit(undefined, 30);
     });
     document.getElementById('relayoutBtn').addEventListener('click', () => {
       if (cy) cy.layout(concentricLayout()).run();
+    });
+
+    downloadReportBtn.addEventListener('click', () => {
+      if (!currentResults || currentResults.length === 0) return;
+
+      const date = new Date().toLocaleString();
+      const source = typeof currentSource !== 'undefined' ? currentSource : "Unknown Source";
+      
+      let md = `# Circular Code Analysis Report\n\n`;
+      md += `**Date:** ${date}\n`;
+      md += `**Source:** ${source}\n\n`;
+      md += `This document summarizes the analysis of ${currentResults.length} code block(s).\n\n`;
+
+      currentResults.forEach((res, idx) => {
+        const label = currentResults.length > 1 ? `Code Block ${idx + 1}` : `Analysis Result`;
+        md += `## ${label}\n\n`;
+        // Check if there's an error in this block
+        if (res.error) {
+             md += `**Error:** ${res.error}\n\n`;
+        }
+        md += "```text\n";
+        md += (res.summary || "") + "\n";
+        md += "```\n\n";
+      });
+
+      md += `## Next Steps\n\n`;
+      md += `You can rerun the analyzer with updated data if needed.\n`;
+
+      const filename = "analysis_report.md";
+      const element = document.createElement('a');
+      element.setAttribute('href', 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md));
+      element.setAttribute('download', filename);
+      element.style.display = 'none';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
     });
   </script>
   
