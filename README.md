@@ -23,6 +23,3 @@ You can also upload a text file containing codes (words separated by spaces/newl
 
 After analysis, you can click **Download Report** to get a Markdown file (`analysis_report.md`) containing the summaries of all analyzed codes.
 
-## Deployment note
-
-For the `dpt-info.di.unistra.fr` server, copy the repository there, run the same setup commands, and point the institution’s web front-end (gunicorn/uwsgi or reverse proxy) to `app.py`. The app only needs Flask and NetworkX, so no database or extra services are required.

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <title>Circular Codes — Web Checker</title>
@@ -11,6 +11,8 @@
 
   <!-- Cytoscape.js from CDN -->
   <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <!-- Report Generation Logic -->
+  <script src="{{ url_for('static', filename='report.js') }}"></script>
 </head>
 <body>
   <div class="container">
@@ -41,7 +43,6 @@
         <textarea id="words" placeholder="Paste your words here…"></textarea>
         <div style="display:flex; gap:10px; margin-top:12px;">
           <button id="analyzeBtn" class="btn btn-primary">Analyze</button>
-          <button id="fillExample" class="btn btn-secondary">Try example</button>
         </div>
         <div style="margin-top:14px; padding:12px; border:1px dashed var(--border); border-radius:12px;">
           <label for="codeFile" style="display:block; font-size:13px; color:var(--muted); margin-bottom:6px;">
@@ -94,7 +95,7 @@
     // Theme toggle (persist in localStorage)
     const themeToggle = document.getElementById('themeToggle');
     const root = document.documentElement;
-    const savedTheme = localStorage.getItem('cc-theme') || 'light';
+    const savedTheme = localStorage.getItem('cc-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
     themeToggle.checked = (savedTheme === 'dark');
     themeToggle.addEventListener('change', () => {
@@ -104,7 +105,6 @@
     });
 
     const btn = document.getElementById('analyzeBtn');
-    const fillExample = document.getElementById('fillExample');
     const ta  = document.getElementById('words');
     const summary = document.getElementById('summary');
     const fileInput = document.getElementById('codeFile');
@@ -295,10 +295,16 @@
     nextBtn.addEventListener('click', () => showResult(currentIndex + 1));
 
     document.getElementById('analyzeBtn').addEventListener('click', () => analyze(ta.value));
-    document.getElementById('fillExample').addEventListener('click', () => {
-      ta.value = "AGT ATG GTA TGT";
-      analyze(ta.value);
+    
+    // Make chips clickable
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const text = chip.innerText;
+        ta.value = text;
+        analyze(text);
+      });
     });
+
     analyzeFileBtn.addEventListener('click', () => {
       const file = fileInput.files[0];
       if (!file) {
@@ -316,39 +322,7 @@
     });
 
     downloadReportBtn.addEventListener('click', () => {
-      if (!currentResults || currentResults.length === 0) return;
-
-      const date = new Date().toLocaleString();
-      const source = typeof currentSource !== 'undefined' ? currentSource : "Unknown Source";
-      
-      let md = `# Circular Code Analysis Report\n\n`;
-      md += `**Date:** ${date}\n`;
-      md += `**Source:** ${source}\n\n`;
-      md += `This document summarizes the analysis of ${currentResults.length} code block(s).\n\n`;
-
-      currentResults.forEach((res, idx) => {
-        const label = currentResults.length > 1 ? `Code Block ${idx + 1}` : `Analysis Result`;
-        md += `## ${label}\n\n`;
-        // Check if there's an error in this block
-        if (res.error) {
-             md += `**Error:** ${res.error}\n\n`;
-        }
-        md += "```text\n";
-        md += (res.summary || "") + "\n";
-        md += "```\n\n";
-      });
-
-      md += `## Next Steps\n\n`;
-      md += `You can rerun the analyzer with updated data if needed.\n`;
-
-      const filename = "analysis_report.md";
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md));
-      element.setAttribute('download', filename);
-      element.style.display = 'none';
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
+      generateAndDownloadReport(currentResults, currentSource);
     });
   </script>
   
