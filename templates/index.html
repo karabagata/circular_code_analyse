@@ -120,7 +120,7 @@
     let currentIndex = 0;
     let currentSource = "";
 
-    function stylesheet() {
+    window.getGraphStyle = function() {
       return [
         // Nodes
         { selector: 'node', style: {
@@ -139,9 +139,7 @@
         { selector: 'node[layer = 2]', style: { 'width': '70px', 'height': '70px' } },
         // Edges
         { selector: 'edge', style: {
-          'curve-style': 'unbundled-bezier',
-          'control-point-distance': 80,
-          'control-point-step-size': 80,
+          'curve-style': 'bezier',
           'target-arrow-shape': 'triangle',
           'arrow-scale': 1.5,
           'width': 2,
@@ -153,9 +151,7 @@
           'text-background-color': '#FFFFFF',
           'text-background-opacity': 0.85,
           'text-background-shape': 'round-rectangle',
-          'text-margin-y': -6,
-          'source-endpoint': 'outside-to-node',
-          'target-endpoint': 'outside-to-node'
+          'text-margin-y': -6
         }},
         // Highlight cycle edges
         { selector: 'edge[?cycle]', style: {
@@ -165,16 +161,21 @@
       ];
     }
 
-    function concentricLayout() {
+    window.getGraphLayout = function() {
       return {
-        name: 'concentric',
-        concentric: node => -node.data('layer'), // 1-mers outermost
-        levelWidth: () => 1,
-        avoidOverlap: true,
-        minNodeSpacing: 40,
-        startAngle: 1.2,   // radians
-        sweep: 6.0,        // full circle
+        name: 'cose',
         animate: false,
+        componentSpacing: 100,
+        nodeRepulsion: 400000,
+        nodeOverlap: 20,
+        idealEdgeLength: 100,
+        edgeElasticity: 100,
+        nestingFactor: 5,
+        gravity: 80,
+        numIter: 1000,
+        initialTemp: 200,
+        coolingFactor: 0.95,
+        minTemp: 1.0,
         padding: 40
       };
     }
@@ -192,8 +193,8 @@
         cy = cytoscape({
           container: document.getElementById('graph'),
           elements: data.elements || [],
-          style: stylesheet(),
-          layout: concentricLayout(),
+          style: window.getGraphStyle(),
+          layout: window.getGraphLayout(),
           wheelSensitivity: 0.2
         });
       } else {
@@ -201,7 +202,7 @@
         cy.elements().remove();
         cy.add(data.elements || []);
         // re-run layout
-        cy.layout(concentricLayout()).run();
+        cy.layout(window.getGraphLayout()).run();
       }
       cy.fit(undefined, 30);
     }
@@ -318,7 +319,7 @@
       if (cy) cy.fit(undefined, 30);
     });
     document.getElementById('relayoutBtn').addEventListener('click', () => {
-      if (cy) cy.layout(concentricLayout()).run();
+      if (cy) cy.layout(window.getGraphLayout()).run();
     });
 
     downloadReportBtn.addEventListener('click', () => {

@@ -1,6 +1,6 @@
 # Circular Codes Web Checker
 
-A small Flask utility that builds the prefix→suffix graph of a fixed-length code, detects cycles (non-circularity), and shows the structure in Cytoscape.js.
+A small web app that checks if a bioinformatical code is circular or not using graphs. It builds the prefix→suffix graph, detects cycles (non-circularity), and visualizes the structure.
 
 ## Quick start
 
