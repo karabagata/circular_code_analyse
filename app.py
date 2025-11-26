@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import networkx as nx
+import re
 
 app = Flask(__name__)
 
@@ -187,8 +188,31 @@ def analyze_file():
             text = raw.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise ValueError("Please upload a UTF-8 text file.") from exc
-        payload = analyze_code_text(text)
-        return jsonify({"ok": True, **payload})
+
+        # Split by blank lines to handle multiple codes
+        # This regex matches 2 or more newlines with optional whitespace between them
+        code_blocks = [block.strip() for block in re.split(r'\n\s*\n', text) if block.strip()]
+
+        if not code_blocks:
+             # If splitting didn't yield blocks (e.g. one block or weird format), 
+             # try the whole text.
+             payload = analyze_code_text(text)
+             return jsonify({"ok": True, "results": [payload]})
+
+        results = []
+        for block in code_blocks:
+            try:
+                results.append(analyze_code_text(block))
+            except Exception as e:
+                # Include error info for this block but continue
+                results.append({
+                    "summary": f"Error parsing code block:\n{block[:100]}...\n\nError: {str(e)}", 
+                    "elements": [], 
+                    "circular": False,
+                    "error": str(e)
+                })
+
+        return jsonify({"ok": True, "results": results})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 

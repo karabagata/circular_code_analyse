@@ -1,4 +1,5 @@
 # Circular Codes Web Checker
+
 A small Flask utility that builds the prefix→suffix graph of a fixed-length code, detects cycles (non-circularity), and shows the structure in Cytoscape.js.
 
 ## Quick start
@@ -18,7 +19,7 @@ All Python dependencies are pinned in `requirements.txt` (Flask + NetworkX).
 
 Once the server starts it listens on `http://127.0.0.1:8080`. Paste your code words, click **Analyze**, and inspect the textual summary and interactive graph. Buttons inside the UI let you fit/relayout the graph or auto-fill with an example set.
 
-You can also upload a text file containing a single code (words separated by spaces/newlines); use the **Analyze file** button to run the same checks on the uploaded content.
+You can also upload a text file containing codes (words separated by spaces/newlines). If the file contains multiple codes, separate them with blank lines; the interface will provide **Previous** / **Next** controls to navigate the results.
 
 ## Deployment note
 

@@ -51,9 +51,14 @@
       </div>
 
       <!-- Right: Summary -->
-      <div class="card">
+      <div class="card" style="display: flex; flex-direction: column;">
         <h3>Summary</h3>
-        <pre id="summary">—</pre>
+        <pre id="summary" style="flex-grow: 1; overflow-y: auto; min-height: 200px; max-height: 400px;">—</pre>
+        <div id="navigation" style="display:none; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); min-height: 40px;">
+          <button id="prevBtn" class="btn btn-secondary" style="font-size:12px; padding:6px 12px;">&larr; Previous</button>
+          <span id="posLabel" style="font-size: 13px; color: var(--muted); font-weight:600;"></span>
+          <button id="nextBtn" class="btn btn-secondary" style="font-size:12px; padding:6px 12px;">Next &rarr;</button>
+        </div>
       </div>
     </div>
 
@@ -99,7 +104,14 @@
     const summary = document.getElementById('summary');
     const fileInput = document.getElementById('codeFile');
     const analyzeFileBtn = document.getElementById('analyzeFileBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const navDiv = document.getElementById('navigation');
+    const posLabel = document.getElementById('posLabel');
+    
     let cy = null;
+    let currentResults = [];
+    let currentIndex = 0;
 
     function stylesheet() {
       return [
@@ -162,6 +174,13 @@
 
     function applyResult(data){
       summary.textContent = data.summary || '—';
+      
+      // If the backend returned an error structure for this block
+      if (data.error) {
+          if (cy) cy.elements().remove();
+          return;
+      }
+
       if (!cy) {
         cy = cytoscape({
           container: document.getElementById('graph'),
@@ -171,16 +190,37 @@
           wheelSensitivity: 0.2
         });
       } else {
+        // reuse existing instance
         cy.elements().remove();
         cy.add(data.elements || []);
+        // re-run layout
         cy.layout(concentricLayout()).run();
       }
       cy.fit(undefined, 30);
     }
 
+    function updateNavigation() {
+      if (currentResults.length > 1) {
+        navDiv.style.display = 'flex';
+        posLabel.textContent = `Code ${currentIndex + 1} of ${currentResults.length}`;
+        prevBtn.disabled = (currentIndex === 0);
+        nextBtn.disabled = (currentIndex === currentResults.length - 1);
+      } else {
+        navDiv.style.display = 'none';
+      }
+    }
+
+    function showResult(index) {
+      if (index < 0 || index >= currentResults.length) return;
+      currentIndex = index;
+      applyResult(currentResults[index]);
+      updateNavigation();
+    }
+
     async function analyze(text){
       btn.disabled = true;
       summary.textContent = 'Processing…';
+      navDiv.style.display = 'none';
       try {
         const res = await fetch('/analyze', {
           method: 'POST',
@@ -189,7 +229,12 @@
         });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Unknown error');
-        applyResult(data);
+        
+        // Normal analyze returns a single object
+        currentResults = [data];
+        currentIndex = 0;
+        showResult(0);
+        
       } catch (err) {
         summary.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
       } finally {
@@ -200,6 +245,7 @@
     async function analyzeFileUpload(file){
       analyzeFileBtn.disabled = true;
       summary.textContent = 'Processing file…';
+      navDiv.style.display = 'none';
       try {
         const formData = new FormData();
         formData.append('file', file);
@@ -209,13 +255,30 @@
         });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Unknown error');
-        applyResult(data);
+        
+        if (data.results) {
+          currentResults = data.results;
+        } else {
+          // Fallback if backend returns single object structure
+          currentResults = [data];
+        }
+        
+        currentIndex = 0;
+        if (currentResults.length === 0) {
+           summary.textContent = 'No valid codes found.';
+        } else {
+           showResult(0);
+        }
+        
       } catch (err) {
         summary.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
       } finally {
         analyzeFileBtn.disabled = false;
       }
     }
+
+    prevBtn.addEventListener('click', () => showResult(currentIndex - 1));
+    nextBtn.addEventListener('click', () => showResult(currentIndex + 1));
 
     document.getElementById('analyzeBtn').addEventListener('click', () => analyze(ta.value));
     document.getElementById('fillExample').addEventListener('click', () => {
