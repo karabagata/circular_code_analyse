@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <title>Circular Codes — Web Checker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- ============ Modern Minimal Styles ============ -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <!-- Cytoscape.js from CDN -->
+  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-logo">C</div>
+        <div>Circular Codes — Web Checker</div>
+      </div>
+      <label class="theme-toggle" title="Toggle dark / light">
+        <span>Theme</span>
+        <input id="themeToggle" class="toggle" type="checkbox" />
+      </label>
+    </div>
+
+    <!-- Content -->
+    <div class="grid">
+      <!-- Left: Input -->
+      <div class="card">
+        <h3>Input</h3>
+        <p style="margin-top:6px; color:var(--muted); font-size:14px;">
+          Enter equal-length words (separate by spaces, commas, or newlines). Examples:
+        </p>
+        <div class="chips" style="margin-bottom:10px;">
+          <span class="chip">AGT ATG GTA TGT</span>
+          <span class="chip">AATG, AGTT, GTGT, GTTT</span>
+        </div>
+        <textarea id="words" placeholder="Paste your words here…"></textarea>
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button id="analyzeBtn" class="btn btn-primary">Analyze</button>
+          <button id="fillExample" class="btn btn-secondary">Try example</button>
+        </div>
+        <div style="margin-top:14px; padding:12px; border:1px dashed var(--border); border-radius:12px;">
+          <label for="codeFile" style="display:block; font-size:13px; color:var(--muted); margin-bottom:6px;">
+            Upload a text file (one code per file):
+          </label>
+          <input id="codeFile" type="file" accept=".txt,.csv,.dat,.code" style="margin-bottom:8px; width:100%;" />
+          <button id="analyzeFileBtn" class="btn btn-secondary" style="width:100%;">Analyze file</button>
+        </div>
+      </div>
+
+      <!-- Right: Summary -->
+      <div class="card">
+        <h3>Summary</h3>
+        <pre id="summary">—</pre>
+      </div>
+    </div>
+
+ 
+
+
+
+    <!-- Graph -->
+    <div class="card" style="margin-top:18px;">
+      <h3>Directed Graph (prefix → suffix)</h3>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button id="fitBtn" class="btn btn-secondary">Fit view</button>
+        <button id="relayoutBtn" class="btn btn-secondary">Re‑layout</button>
+      </div>
+      <div id="graph"></div>
+    </div>
+
+    <div class="footer">
+      <div class="footer">
+        <span style="margin-left:20px; font-style:italic; font-size:12px; opacity:0.8;">
+          Created by Ata KARABAG and Emre SUSLU
+        </span>
+        
+    </div>
+  </div>
+
+  <script>
+    // Theme toggle (persist in localStorage)
+    const themeToggle = document.getElementById('themeToggle');
+    const root = document.documentElement;
+    const savedTheme = localStorage.getItem('cc-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    themeToggle.checked = (savedTheme === 'dark');
+    themeToggle.addEventListener('change', () => {
+      const next = themeToggle.checked ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('cc-theme', next);
+    });
+
+    const btn = document.getElementById('analyzeBtn');
+    const fillExample = document.getElementById('fillExample');
+    const ta  = document.getElementById('words');
+    const summary = document.getElementById('summary');
+    const fileInput = document.getElementById('codeFile');
+    const analyzeFileBtn = document.getElementById('analyzeFileBtn');
+    let cy = null;
+
+    function stylesheet() {
+      return [
+        // Nodes
+        { selector: 'node', style: {
+          'label': 'data(label)',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'font-size': '12px',
+          'background-color': '#cfe0f7',
+          'border-width': 1,
+          'border-color': '#6C757D',
+          'width': '64px',
+          'height': '64px'
+        }},
+        // Slight size hints by fragment length
+        { selector: 'node[layer = 1]', style: { 'width': '76px', 'height': '76px' } },
+        { selector: 'node[layer = 2]', style: { 'width': '70px', 'height': '70px' } },
+        // Edges
+        { selector: 'edge', style: {
+          'curve-style': 'unbundled-bezier',
+          'control-point-distance': 80,
+          'control-point-step-size': 80,
+          'target-arrow-shape': 'triangle',
+          'arrow-scale': 1.5,
+          'width': 2,
+          'line-color': '#4C6EF5',
+          'target-arrow-color': '#4C6EF5',
+          'edge-text-rotation': 'autorotate',
+          'label': 'data(label)',
+          'font-size': '10px',
+          'text-background-color': '#FFFFFF',
+          'text-background-opacity': 0.85,
+          'text-background-shape': 'round-rectangle',
+          'text-margin-y': -6,
+          'source-endpoint': 'outside-to-node',
+          'target-endpoint': 'outside-to-node'
+        }},
+        // Highlight cycle edges
+        { selector: 'edge[?cycle]', style: {
+          'line-color': '#ff6b6b',
+          'target-arrow-color': '#ff6b6b'
+        }}
+      ];
+    }
+
+    function concentricLayout() {
+      return {
+        name: 'concentric',
+        concentric: node => -node.data('layer'), // 1-mers outermost
+        levelWidth: () => 1,
+        avoidOverlap: true,
+        minNodeSpacing: 40,
+        startAngle: 1.2,   // radians
+        sweep: 6.0,        // full circle
+        animate: false,
+        padding: 40
+      };
+    }
+
+    function applyResult(data){
+      summary.textContent = data.summary || '—';
+      if (!cy) {
+        cy = cytoscape({
+          container: document.getElementById('graph'),
+          elements: data.elements || [],
+          style: stylesheet(),
+          layout: concentricLayout(),
+          wheelSensitivity: 0.2
+        });
+      } else {
+        cy.elements().remove();
+        cy.add(data.elements || []);
+        cy.layout(concentricLayout()).run();
+      }
+      cy.fit(undefined, 30);
+    }
+
+    async function analyze(text){
+      btn.disabled = true;
+      summary.textContent = 'Processing…';
+      try {
+        const res = await fetch('/analyze', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Unknown error');
+        applyResult(data);
+      } catch (err) {
+        summary.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function analyzeFileUpload(file){
+      analyzeFileBtn.disabled = true;
+      summary.textContent = 'Processing file…';
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/analyze-file', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Unknown error');
+        applyResult(data);
+      } catch (err) {
+        summary.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
+      } finally {
+        analyzeFileBtn.disabled = false;
+      }
+    }
+
+    document.getElementById('analyzeBtn').addEventListener('click', () => analyze(ta.value));
+    document.getElementById('fillExample').addEventListener('click', () => {
+      ta.value = "AGT ATG GTA TGT";
+      analyze(ta.value);
+    });
+    analyzeFileBtn.addEventListener('click', () => {
+      const file = fileInput.files[0];
+      if (!file) {
+        summary.textContent = 'Please choose a file first.';
+        return;
+      }
+      analyzeFileUpload(file);
+    });
+    document.getElementById('fitBtn').addEventListener('click', () => {
+      if (cy) cy.fit(undefined, 30);
+    });
+    document.getElementById('relayoutBtn').addEventListener('click', () => {
+      if (cy) cy.layout(concentricLayout()).run();
+    });
+  </script>
+  
+</body>
+</html>
