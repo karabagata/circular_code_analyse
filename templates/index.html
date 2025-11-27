@@ -82,6 +82,9 @@
       <div id="graph"></div>
     </div>
 
+    <!-- Hidden container for report image generation -->
+    <div id="hidden-graph-container" style="position: absolute; left: -9999px; top: -9999px; width: 800px; height: 600px;"></div>
+
     <div class="footer">
       <div class="footer">
         <span style="margin-left:20px; font-style:italic; font-size:12px; opacity:0.8;">
@@ -116,9 +119,9 @@
     const downloadReportBtn = document.getElementById('downloadReportBtn');
     
     let cy = null;
-    let currentResults = [];
-    let currentIndex = 0;
-    let currentSource = "";
+    window.currentResults = [];
+    window.currentIndex = 0;
+    window.currentSource = "";
 
     window.getGraphStyle = function() {
       return [
@@ -208,20 +211,20 @@
     }
 
     function updateNavigation() {
-      if (currentResults.length > 1) {
+      if (window.currentResults.length > 1) {
         navDiv.style.display = 'flex';
-        posLabel.textContent = `Code ${currentIndex + 1} of ${currentResults.length}`;
-        prevBtn.disabled = (currentIndex === 0);
-        nextBtn.disabled = (currentIndex === currentResults.length - 1);
+        posLabel.textContent = `Code ${window.currentIndex + 1} of ${window.currentResults.length}`;
+        prevBtn.disabled = (window.currentIndex === 0);
+        nextBtn.disabled = (window.currentIndex === window.currentResults.length - 1);
       } else {
         navDiv.style.display = 'none';
       }
     }
 
     function showResult(index) {
-      if (index < 0 || index >= currentResults.length) return;
-      currentIndex = index;
-      applyResult(currentResults[index]);
+      if (index < 0 || index >= window.currentResults.length) return;
+      window.currentIndex = index;
+      applyResult(window.currentResults[index]);
       updateNavigation();
     }
 
@@ -239,9 +242,9 @@
         if (!data.ok) throw new Error(data.error || 'Unknown error');
         
         // Normal analyze returns a single object
-        currentResults = [data];
-        currentIndex = 0;
-        currentSource = "Manual Input";
+        window.currentResults = [data];
+        window.currentIndex = 0;
+        window.currentSource = "Manual Input";
         showResult(0);
         downloadReportBtn.style.display = 'block';
         
@@ -268,15 +271,15 @@
         if (!data.ok) throw new Error(data.error || 'Unknown error');
         
         if (data.results) {
-          currentResults = data.results;
+          window.currentResults = data.results;
         } else {
           // Fallback if backend returns single object structure
-          currentResults = [data];
+          window.currentResults = [data];
         }
         
-        currentIndex = 0;
-        currentSource = file.name;
-        if (currentResults.length === 0) {
+        window.currentIndex = 0;
+        window.currentSource = file.name;
+        if (window.currentResults.length === 0) {
            summary.textContent = 'No valid codes found.';
            downloadReportBtn.style.display = 'none';
         } else {
@@ -292,8 +295,8 @@
       }
     }
 
-    prevBtn.addEventListener('click', () => showResult(currentIndex - 1));
-    nextBtn.addEventListener('click', () => showResult(currentIndex + 1));
+    prevBtn.addEventListener('click', () => showResult(window.currentIndex - 1));
+    nextBtn.addEventListener('click', () => showResult(window.currentIndex + 1));
 
     document.getElementById('analyzeBtn').addEventListener('click', () => analyze(ta.value));
     
@@ -322,9 +325,6 @@
       if (cy) cy.layout(window.getGraphLayout()).run();
     });
 
-    downloadReportBtn.addEventListener('click', () => {
-      generateAndDownloadReport(currentResults, currentSource);
-    });
   </script>
   
 </body>
