@@ -23,3 +23,4 @@ You can also upload a text file containing codes (words separated by spaces/newl
 
 After analysis, you can click **Download Report** to get a Markdown file (`analysis_report.md`) containing the summaries of all analyzed codes.
 
+<img width="870" height="883" alt="image" src="https://github.com/user-attachments/assets/a7c4ed1d-ad52-4815-b717-1432f1282301" />
