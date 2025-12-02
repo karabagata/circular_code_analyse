@@ -23,6 +23,7 @@
       --shadow: 0 8px 24px rgba(17,20,39,.08);
     }
     * { box-sizing: border-box; }
+    .hidden { display: none !important; }
     html, body { height: 100%; }
     body {
       margin: 0;
@@ -36,6 +37,11 @@
       max-width: 1100px;
       margin: 0 auto;
       padding: 24px;
+    }
+    .help-text {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 14px;
     }
     /* Header */
     .topbar {
@@ -91,6 +97,10 @@
       color: var(--muted);
       text-transform: uppercase;
     }
+    .column-card { display:flex; flex-direction: column; }
+    .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .card-header h3 { margin: 0; }
+    .small-btn { font-size:12px; padding:4px 10px; }
 
     /* Inputs */
     textarea {
@@ -108,6 +118,21 @@
       transition: border .15s ease, box-shadow .15s ease;
     }
     textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(76,110,245,.15); }
+    .action-row { display:flex; gap:10px; margin-top:12px; }
+    .upload-box {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+    .upload-label {
+      display:block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .file-input { margin-bottom: 8px; width: 100%; }
+    .full-width { width: 100%; }
 
     .btn {
       display:inline-flex; align-items:center; gap:8px;
@@ -129,7 +154,7 @@
     [data-theme="dark"] .btn-secondary { background: linear-gradient(135deg, #354063, #6d7aa6); color: #e8ecf8; }
 
     /* Chips / examples */
-    .chips { display:flex; flex-wrap: wrap; gap:8px; }
+    .chips { display:flex; flex-wrap: wrap; gap:8px; margin-bottom: 10px; }
     .chip {
       padding: 6px 10px; border-radius: 999px; font-size: 12px;
       background: var(--chip); border: 1px solid var(--border); color: var(--muted);
@@ -154,8 +179,27 @@
       border-radius: 12px;
       font-size: 13px;
     }
+    .summary-box {
+      flex-grow: 1;
+      overflow-y: auto;
+      min-height: 200px;
+      max-height: 400px;
+    }
+    .nav-controls {
+      display:flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border);
+      min-height: 40px;
+    }
+    .nav-btn { font-size: 12px; padding: 6px 12px; }
+    .nav-label { font-size: 13px; color: var(--muted); font-weight:600; }
 
     /* Graph */
+    .graph-card { margin-top: 18px; }
+    .graph-controls { display:flex; gap:8px; margin-bottom:10px; }
     #graph {
       width: 100%; height: 560px;
       border: 1px solid var(--border);
@@ -165,10 +209,17 @@
                   var(--panel);
       box-shadow: var(--shadow);
     }
+    .hidden-graph-container {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      width: 800px;
+      height: 600px;
+    }
 
     /* Footer */
     .footer {
       margin-top: 18px; color: var(--muted); font-size: 12px;
       display:flex; align-items:center; gap:10px; justify-content: flex-end;
     }
-
+    .footer-note { margin-left: 20px; font-style: italic; font-size: 12px; opacity: 0.8; }

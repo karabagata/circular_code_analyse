@@ -11,8 +11,6 @@
 
   <!-- Cytoscape.js from CDN -->
   <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
-  <!-- Report Generation Logic -->
-  <script src="{{ url_for('static', filename='report.js') }}"></script>
 </head>
 <body>
   <div class="container">
@@ -33,37 +31,37 @@
       <!-- Left: Input -->
       <div class="card">
         <h3>Input</h3>
-        <p style="margin-top:6px; color:var(--muted); font-size:14px;">
+        <p class="help-text">
           Enter equal-length words (separate by spaces, commas, or newlines). Examples:
         </p>
-        <div class="chips" style="margin-bottom:10px;">
+        <div class="chips">
           <span class="chip">AGT ATG GTA TGT</span>
           <span class="chip">AATG, AGTT, GTGT, GTTT</span>
         </div>
         <textarea id="words" placeholder="Paste your words here…"></textarea>
-        <div style="display:flex; gap:10px; margin-top:12px;">
+        <div class="action-row">
           <button id="analyzeBtn" class="btn btn-primary">Analyze</button>
         </div>
-        <div style="margin-top:14px; padding:12px; border:1px dashed var(--border); border-radius:12px;">
-          <label for="codeFile" style="display:block; font-size:13px; color:var(--muted); margin-bottom:6px;">
+        <div class="upload-box">
+          <label for="codeFile" class="upload-label">
             Upload a text file (empty lines separate codes):
           </label>
-          <input id="codeFile" type="file" accept=".txt,.csv,.dat,.code" style="margin-bottom:8px; width:100%;" />
-          <button id="analyzeFileBtn" class="btn btn-secondary" style="width:100%;">Analyze file</button>
+          <input id="codeFile" class="file-input" type="file" accept=".txt,.csv,.dat,.code" />
+          <button id="analyzeFileBtn" class="btn btn-secondary full-width">Analyze file</button>
         </div>
       </div>
 
       <!-- Right: Summary -->
-      <div class="card" style="display: flex; flex-direction: column;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h3 style="margin:0;">Summary</h3>
-          <button id="downloadReportBtn" class="btn btn-secondary" style="font-size:12px; padding:4px 10px; display:none;">Download Report</button>
+      <div class="card column-card">
+        <div class="card-header">
+          <h3>Summary</h3>
+          <button id="downloadReportBtn" class="btn btn-secondary small-btn hidden">Download Report</button>
         </div>
-        <pre id="summary" style="flex-grow: 1; overflow-y: auto; min-height: 200px; max-height: 400px;">—</pre>
-        <div id="navigation" style="display:none; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); min-height: 40px;">
-          <button id="prevBtn" class="btn btn-secondary" style="font-size:12px; padding:6px 12px;">&larr; Previous</button>
-          <span id="posLabel" style="font-size: 13px; color: var(--muted); font-weight:600;"></span>
-          <button id="nextBtn" class="btn btn-secondary" style="font-size:12px; padding:6px 12px;">Next &rarr;</button>
+        <pre id="summary" class="summary-box">—</pre>
+        <div id="navigation" class="nav-controls hidden">
+          <button id="prevBtn" class="btn btn-secondary nav-btn">&larr; Previous</button>
+          <span id="posLabel" class="nav-label"></span>
+          <button id="nextBtn" class="btn btn-secondary nav-btn">Next &rarr;</button>
         </div>
       </div>
     </div>
@@ -73,9 +71,9 @@
 
 
     <!-- Graph -->
-    <div class="card" style="margin-top:18px;">
+    <div class="card graph-card">
       <h3>Directed Graph (prefix → suffix)</h3>
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <div class="graph-controls">
         <button id="fitBtn" class="btn btn-secondary">Fit view</button>
         <button id="relayoutBtn" class="btn btn-secondary">Re‑layout</button>
       </div>
@@ -83,249 +81,15 @@
     </div>
 
     <!-- Hidden container for report image generation -->
-    <div id="hidden-graph-container" style="position: absolute; left: -9999px; top: -9999px; width: 800px; height: 600px;"></div>
+    <div id="hidden-graph-container" class="hidden-graph-container"></div>
 
     <div class="footer">
-      <div class="footer">
-        <span style="margin-left:20px; font-style:italic; font-size:12px; opacity:0.8;">
-          Created by Ata KARABAG and Emre SUSLU
-        </span>
-        
+      <span class="footer-note">
+        Created by Ata KARABAG and Emre SUSLU
+      </span>
     </div>
   </div>
 
-  <script>
-    // Theme toggle (persist in localStorage)
-    const themeToggle = document.getElementById('themeToggle');
-    const root = document.documentElement;
-    const savedTheme = localStorage.getItem('cc-theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    themeToggle.checked = (savedTheme === 'dark');
-    themeToggle.addEventListener('change', () => {
-      const next = themeToggle.checked ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('cc-theme', next);
-    });
-
-    const btn = document.getElementById('analyzeBtn');
-    const ta  = document.getElementById('words');
-    const summary = document.getElementById('summary');
-    const fileInput = document.getElementById('codeFile');
-    const analyzeFileBtn = document.getElementById('analyzeFileBtn');
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const navDiv = document.getElementById('navigation');
-    const posLabel = document.getElementById('posLabel');
-    const downloadReportBtn = document.getElementById('downloadReportBtn');
-    
-    let cy = null;
-    window.currentResults = [];
-    window.currentIndex = 0;
-    window.currentSource = "";
-
-    window.getGraphStyle = function() {
-      return [
-        // Nodes
-        { selector: 'node', style: {
-          'label': 'data(label)',
-          'text-valign': 'center',
-          'text-halign': 'center',
-          'font-size': '12px',
-          'background-color': '#cfe0f7',
-          'border-width': 1,
-          'border-color': '#6C757D',
-          'width': '64px',
-          'height': '64px'
-        }},
-        // Slight size hints by fragment length
-        { selector: 'node[layer = 1]', style: { 'width': '76px', 'height': '76px' } },
-        { selector: 'node[layer = 2]', style: { 'width': '70px', 'height': '70px' } },
-        // Edges
-        { selector: 'edge', style: {
-          'curve-style': 'bezier',
-          'target-arrow-shape': 'triangle',
-          'arrow-scale': 1.5,
-          'width': 2,
-          'line-color': '#4C6EF5',
-          'target-arrow-color': '#4C6EF5',
-          'edge-text-rotation': 'autorotate',
-          'label': 'data(label)',
-          'font-size': '10px',
-          'text-background-color': '#FFFFFF',
-          'text-background-opacity': 0.85,
-          'text-background-shape': 'round-rectangle',
-          'text-margin-y': -6
-        }},
-        // Highlight cycle edges
-        { selector: 'edge[?cycle]', style: {
-          'line-color': '#ff6b6b',
-          'target-arrow-color': '#ff6b6b'
-        }}
-      ];
-    }
-
-    window.getGraphLayout = function() {
-      return {
-        name: 'cose',
-        animate: false,
-        componentSpacing: 100,
-        nodeRepulsion: 400000,
-        nodeOverlap: 20,
-        idealEdgeLength: 100,
-        edgeElasticity: 100,
-        nestingFactor: 5,
-        gravity: 80,
-        numIter: 1000,
-        initialTemp: 200,
-        coolingFactor: 0.95,
-        minTemp: 1.0,
-        padding: 40
-      };
-    }
-
-    function applyResult(data){
-      summary.textContent = data.summary || '—';
-      
-      // If the backend returned an error structure for this block
-      if (data.error) {
-          if (cy) cy.elements().remove();
-          return;
-      }
-
-      if (!cy) {
-        cy = cytoscape({
-          container: document.getElementById('graph'),
-          elements: data.elements || [],
-          style: window.getGraphStyle(),
-          layout: window.getGraphLayout(),
-          wheelSensitivity: 0.2
-        });
-      } else {
-        // reuse existing instance
-        cy.elements().remove();
-        cy.add(data.elements || []);
-        // re-run layout
-        cy.layout(window.getGraphLayout()).run();
-      }
-      cy.fit(undefined, 30);
-    }
-
-    function updateNavigation() {
-      if (window.currentResults.length > 1) {
-        navDiv.style.display = 'flex';
-        posLabel.textContent = `Code ${window.currentIndex + 1} of ${window.currentResults.length}`;
-        prevBtn.disabled = (window.currentIndex === 0);
-        nextBtn.disabled = (window.currentIndex === window.currentResults.length - 1);
-      } else {
-        navDiv.style.display = 'none';
-      }
-    }
-
-    function showResult(index) {
-      if (index < 0 || index >= window.currentResults.length) return;
-      window.currentIndex = index;
-      applyResult(window.currentResults[index]);
-      updateNavigation();
-    }
-
-    async function analyze(text){
-      btn.disabled = true;
-      summary.textContent = 'Processing…';
-      navDiv.style.display = 'none';
-      try {
-        const res = await fetch('/analyze', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ text })
-        });
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.error || 'Unknown error');
-        
-        // Normal analyze returns a single object
-        window.currentResults = [data];
-        window.currentIndex = 0;
-        window.currentSource = "Manual Input";
-        showResult(0);
-        downloadReportBtn.style.display = 'block';
-        
-      } catch (err) {
-        summary.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
-        downloadReportBtn.style.display = 'none';
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    async function analyzeFileUpload(file){
-      analyzeFileBtn.disabled = true;
-      summary.textContent = 'Processing file…';
-      navDiv.style.display = 'none';
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await fetch('/analyze-file', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.error || 'Unknown error');
-        
-        if (data.results) {
-          window.currentResults = data.results;
-        } else {
-          // Fallback if backend returns single object structure
-          window.currentResults = [data];
-        }
-        
-        window.currentIndex = 0;
-        window.currentSource = file.name;
-        if (window.currentResults.length === 0) {
-           summary.textContent = 'No valid codes found.';
-           downloadReportBtn.style.display = 'none';
-        } else {
-           showResult(0);
-           downloadReportBtn.style.display = 'block';
-        }
-        
-      } catch (err) {
-        summary.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
-        downloadReportBtn.style.display = 'none';
-      } finally {
-        analyzeFileBtn.disabled = false;
-      }
-    }
-
-    prevBtn.addEventListener('click', () => showResult(window.currentIndex - 1));
-    nextBtn.addEventListener('click', () => showResult(window.currentIndex + 1));
-
-    document.getElementById('analyzeBtn').addEventListener('click', () => analyze(ta.value));
-    
-    // Make chips clickable
-    document.querySelectorAll('.chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const text = chip.innerText;
-        ta.value = text;
-        analyze(text);
-      });
-    });
-
-    analyzeFileBtn.addEventListener('click', () => {
-      const file = fileInput.files[0];
-      if (!file) {
-        summary.textContent = 'Please choose a file first.';
-        return;
-      }
-      analyzeFileUpload(file);
-    });
-
-    document.getElementById('fitBtn').addEventListener('click', () => {
-      if (cy) cy.fit(undefined, 30);
-    });
-    document.getElementById('relayoutBtn').addEventListener('click', () => {
-      if (cy) cy.layout(window.getGraphLayout()).run();
-    });
-
-  </script>
-  
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
